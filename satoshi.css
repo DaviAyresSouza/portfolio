@@ -1,0 +1,30 @@
+/* Satoshi */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('assets/satoshi-0.woff2') format('woff2'),
+       url('assets/satoshi-1.woff') format('woff'),
+       url('assets/satoshi-2.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('assets/satoshi-3.woff2') format('woff2'),
+       url('assets/satoshi-4.woff') format('woff'),
+       url('assets/satoshi-5.ttf') format('truetype');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('assets/satoshi-6.woff2') format('woff2'),
+       url('assets/satoshi-7.woff') format('woff'),
+       url('assets/satoshi-8.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+
