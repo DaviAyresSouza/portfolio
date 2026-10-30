@@ -1,0 +1,29 @@
+{
+  "name": "davi-portfolio-online",
+  "version": "1.0.0",
+  "description": "Portfólio Davi Ayres com Supabase Auth, Database e Storage",
+  "main": "app.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node --test tests/cloud-data.test.js",
+    "vendor": "node scripts/vendor.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DaviAyresSouza/portfolio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DaviAyresSouza/portfolio/issues"
+  },
+  "homepage": "https://github.com/DaviAyresSouza/portfolio#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0"
+  },
+  "private": true
+}

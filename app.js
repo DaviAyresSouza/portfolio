@@ -1,7 +1,6 @@
 (()=>{
 'use strict';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const uid=()=>crypto.randomUUID?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint32Array(4)),n=>n.toString(16)).join('-');
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const demoProjects=[
@@ -12,7 +11,7 @@ const demoProjects=[
 {id:'digital',title:'Uma marca, uma nova presença',category:'Digital',year:2026,art:'digital',description:'Estudo de apresentação digital com tipografia editorial e elementos visuais de marca. Demonstração de espaço para sites e landing pages.',slides:1},
 {id:'editorial',title:'Entre formas e palavras',category:'Posts',year:2026,art:'editorial',description:'Estudo gráfico demonstrativo sobre composição editorial, ritmo e tipografia. Conteúdo temporário para esta primeira versão do portfólio.',slides:1}
 ];
-let panelUnlocked=false, panelEpoch=0;
+let panelUnlocked=false, panelBusy=false, editingProject=null, cloud=null;
 let userProjects=[],activeFilter='Todos',activeProject=null,slideIndex=0,lastProjectButton=null;
 function artMarkup(type,slide=0){
  if(type==='forma')return `<div class="art art-forma" style="${slide===1?'background:#263b2d;color:#e2e7d4':slide===2?'background:#ebe9df':''}"><small>ESTUDO DE IDENTIDADE / 2026</small><div class="forma-mark" style="${slide===1?'border-color:#c9cfb8':''}"></div><div class="forma-word">forma</div><div class="bottom-line"><small>${['NATURAL POR ESSÊNCIA.','UM SISTEMA. MUITAS FORMAS.','DO CONCEITO AO DETALHE.'][slide%3]}</small><div class="mini-card">f.</div></div></div>`;
@@ -22,31 +21,39 @@ function artMarkup(type,slide=0){
  if(type==='editorial')return '<div class="art art-editorial"><small>ESTUDO EDITORIAL — VOL. 01</small><div><div class="editorial-rule"></div><h3>entre<br>formas.</h3></div><p>Um exercício sobre espaço, equilíbrio e as possibilidades da palavra.</p><div class="editorial-circle"></div></div>';
  return '<div class="film-cover"><img src="assets/portrait-warm.webp" alt="Retrato de Davi em iluminação cinematográfica" loading="lazy"><div class="film-overlay"><span>▷</span><h3>Um olhar<br>em movimento.</h3><small>PRÉVIA DEMONSTRATIVA / 06 SEGUNDOS</small></div></div>';
 }
-function currentProjects(){return [...userProjects,...demoProjects]}
-function mediaCover(p){if(!p.local)return artMarkup(p.art);const m=p.media[0];return m.type.startsWith('video/')?`<video src="${m.data}" preload="metadata" muted playsinline aria-label="Prévia de ${esc(p.title)}"></video>`:`<img src="${m.data}" alt="${esc(p.title)}" loading="lazy">`}
+function currentProjects(){const published=userProjects.filter(p=>p.published);return published.length?published:demoProjects}
+function mediaCover(p){
+ if(!p.cloud)return artMarkup(p.art);
+ const m=p.media[0];if(!m||!m.data)return '<div class="media-placeholder">Prévia indisponível</div>';
+ if(m.type==='application/pdf')return '<div class="media-placeholder"><span>PDF</span><strong>'+esc(p.title)+'</strong><small>Explore o projeto ↗</small></div>';
+ return m.type.startsWith('video/')?`<video src="${esc(m.data)}" preload="metadata" muted playsinline aria-label="Prévia de ${esc(p.title)}"></video>`:`<img src="${esc(m.data)}" alt="${esc(p.title)}" loading="lazy">`;
+}
 function renderProjects(){
  const all=currentProjects(),list=all.filter(p=>activeFilter==='Todos'||p.category===activeFilter);
- $('#project-grid').innerHTML=list.map(p=>`<article class="project-card"><button class="project-button" data-id="${esc(p.id)}" aria-label="Abrir projeto: ${esc(p.title)}"><div class="project-cover">${mediaCover(p)}<span class="project-badge">${p.local?'RASCUNHO LOCAL':'ESTUDO DEMONSTRATIVO'}</span><span class="project-open" aria-hidden="true">↗</span></div><div class="project-caption"><div><h3>${esc(p.title)}</h3><p>${esc(p.category)}${p.category==='Carrosséis'?' · '+(p.local?p.media.length:p.slides)+' páginas':''}</p></div><span>${p.year}</span></div></button></article>`).join('');
+ $('#project-grid').innerHTML=list.map(p=>`<article class="project-card"><button class="project-button" data-id="${esc(p.id)}" aria-label="Abrir projeto: ${esc(p.title)}"><div class="project-cover">${mediaCover(p)}<span class="project-badge">${p.cloud?'PROJETO':'ESTUDO DEMONSTRATIVO'}</span><span class="project-open" aria-hidden="true">↗</span></div><div class="project-caption"><div><h3>${esc(p.title)}</h3><p>${esc(p.category)}${p.category==='Carrosséis'?' · '+(p.cloud?p.media.length:p.slides)+' páginas':''}</p></div><span>${p.year}</span></div></button></article>`).join('');
  $('.empty-state').hidden=!!list.length;$('.work-counter').textContent=list.length?'01 — '+String(list.length).padStart(2,'0'):'00';$('.nav sup').textContent=String(all.length).padStart(2,'0');$('.filters sup').textContent=String(all.length).padStart(2,'0');
  $$('.project-button').forEach(b=>{b.onclick=()=>{lastProjectButton=b;openProject(all.find(p=>p.id===b.dataset.id))};b.onpointerenter=()=>{if(matchMedia('(pointer:fine)').matches)$('.cursor-tag').classList.add('on')};b.onpointerleave=()=>$('.cursor-tag').classList.remove('on')});
  if(window.gsap&&!reduce)gsap.fromTo('.project-card',{opacity:0,y:24},{opacity:1,y:0,duration:.55,stagger:.045,clearProps:'transform,opacity'});
  window.ScrollTrigger?.refresh();
 }
 $$('[data-filter]').forEach(b=>b.onclick=()=>{activeFilter=b.dataset.filter;$$('[data-filter]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b))});renderProjects()});
-function openProject(p){activeProject=p;slideIndex=0;$('#modal-title').textContent=p.title;$('#modal-category').textContent=p.category.toUpperCase()+' / '+p.year;$('#modal-description').textContent=p.description;$('#modal-note').textContent=p.local?'Rascunho salvo neste navegador.':'Conteúdo demonstrativo. Os trabalhos definitivos serão adicionados em breve.';renderSlide();$('#project-dialog').showModal();$('.cursor-tag').classList.remove('on')}
-function renderSlide(){const p=activeProject,n=p.local?p.media.length:p.slides;let content;
- if(p.local){const m=p.media[slideIndex];content=m.type.startsWith('video/')?`<video controls controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback playsinline preload="metadata" src="${m.data}" aria-label="${esc(p.title)}"></video>`:`<img src="${m.data}" alt="${esc(p.title)} — imagem ${slideIndex+1}">`}
+function openProject(p){activeProject=p;slideIndex=0;$('#modal-title').textContent=p.title;$('#modal-category').textContent=p.category.toUpperCase()+' / '+p.year;$('#modal-description').textContent=p.description;$('#modal-note').textContent=p.cloud?'Design e produção por Davi Ayres.':'Conteúdo demonstrativo. Os trabalhos definitivos serão adicionados em breve.';renderSlide();$('#project-dialog').showModal();$('.cursor-tag').classList.remove('on')}
+function renderSlide(){const p=activeProject,n=p.cloud?p.media.length:p.slides;let content;
+ if(p.cloud){const m=p.media[slideIndex];
+  if(!m?.data)content='<div class="media-placeholder">Não foi possível carregar esta mídia. Feche e atualize os projetos.</div>';
+  else if(m.type==='application/pdf')content=`<iframe class="project-pdf" src="${esc(m.data)}#toolbar=0&navpanes=0" title="${esc(p.title)} — PDF"></iframe>`;
+  else content=m.type.startsWith('video/')?`<video controls controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback playsinline preload="metadata" src="${esc(m.data)}" aria-label="${esc(p.title)}"></video>`:`<img src="${esc(m.data)}" alt="${esc(p.title)} — imagem ${slideIndex+1}">`;
+ }
  else if(p.art==='film')content='<video controls controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback playsinline preload="metadata" poster="assets/portrait-warm.webp" aria-label="Prévia de movimento com retrato de Davi"><source src="assets/demo-motion.webm" type="video/webm"><source src="assets/demo-motion.mp4" type="video/mp4"></video>';
  else content=artMarkup(p.art,slideIndex);
  $('#modal-media').innerHTML=`<div class="modal-media-frame">${content}</div>`;$('#slide-count').textContent=`${String(slideIndex+1).padStart(2,'0')} / ${String(n).padStart(2,'0')}`;$('#slide-prev').disabled=slideIndex===0;$('#slide-next').disabled=slideIndex===n-1;$('.modal-navigation').hidden=n===1;
 }
-$('#slide-prev').onclick=()=>{if(slideIndex>0){slideIndex--;renderSlide()}};$('#slide-next').onclick=()=>{if(slideIndex<(activeProject.local?activeProject.media.length:activeProject.slides)-1){slideIndex++;renderSlide()}};
+$('#slide-prev').onclick=()=>{if(slideIndex>0){slideIndex--;renderSlide()}};$('#slide-next').onclick=()=>{if(slideIndex<(activeProject.cloud?activeProject.media.length:activeProject.slides)-1){slideIndex++;renderSlide()}};
 $('#project-dialog').addEventListener('keydown',e=>{if(e.target.tagName==='VIDEO')return;if(e.key==='ArrowRight')$('#slide-next').click();if(e.key==='ArrowLeft')$('#slide-prev').click()});
 $$('dialog').forEach(d=>{$('.dialog-close',d).onclick=()=>d.close();d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close()}});d.addEventListener('close',()=>{$$('video',d).forEach(v=>v.pause());if(d.id==='project-dialog')lastProjectButton?.focus()})});
 const toggle=$('.menu-toggle'),menu=$('.mobile-nav');function setMenu(on){menu.classList.toggle('open',on);menu.inert=!on;toggle.setAttribute('aria-expanded',String(on));toggle.setAttribute('aria-label',on?'Fechar menu':'Abrir menu');document.body.style.overflow=on?'hidden':''}
 toggle.onclick=()=>setMenu(!menu.classList.contains('open'));$$('a',menu).forEach(a=>a.onclick=()=>setMenu(false));document.addEventListener('keydown',e=>{if(e.key==='Escape')setMenu(false)});window.addEventListener('resize',()=>{if(innerWidth>700)setMenu(false)});
 $('#year').textContent=new Date().getFullYear();
-const download=(text,name,type='text/plain')=>{const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)};
 const contactSettings=window.PORTFOLIO_CONTACT||{};
 const contactApi=window.PortfolioContact;
 function updateContactChannels(){
@@ -81,42 +88,103 @@ $('#brief-form').onsubmit=e=>{
   }catch(error){status.textContent=error.message||'Não foi possível abrir esse canal. Tente outra opção.'}
 };
 updateContactChannels();
-// Rascunhos locais: nunca enviados a terceiros nem apresentados como publicados.
-let dbPromise;
-function db(){if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{const r=indexedDB.open('davi-ayres-portfolio-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});return dbPromise}
-async function readDrafts(){const d=await db();return new Promise((resolve,reject)=>{const r=d.transaction('state').objectStore('state').get('projects');r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)})}
-async function saveDrafts(projects){if(!panelUnlocked)throw Error("Abra o painel com sua senha.");const epoch=panelEpoch;const d=await db();if(!panelUnlocked||epoch!==panelEpoch)throw Error("Painel bloqueado.");return new Promise((resolve,reject)=>{const tx=d.transaction('state','readwrite');tx.objectStore('state').put(projects,'projects');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)})}
-function manageList(){$('#manage-list').innerHTML=userProjects.length?userProjects.map(p=>`<div class="manage-item"><span>${esc(p.title)} · ${esc(p.category)}</span><button data-remove="${esc(p.id)}" aria-label="Remover ${esc(p.title)} do rascunho">Remover</button></div>`).join(''):'<p style="font-size:11px;color:#777;margin-top:20px">Seus novos projetos aparecerão aqui.</p>';$$('[data-remove]').forEach(b=>b.onclick=async()=>{if(!panelUnlocked)return;const next=userProjects.filter(p=>p.id!==b.dataset.remove);try{await saveDrafts(next);userProjects=next;manageList();renderProjects();$('#manager-status').textContent='Projeto removido do rascunho local.'}catch{$('#manager-status').textContent='Não foi possível salvar a alteração neste navegador.'}})}
+// Conteúdo online: leitura pública, escrita autorizada por RLS no Supabase.
+const publicStatus=$('#cloud-status');let lastRefresh=0,refreshPromise=null;
+function errorText(e){
+ if(/fetch|network/i.test(e?.message||''))return 'Sem conexão com o armazenamento. Confira sua internet e tente novamente.';
+ return e?.message||'Não foi possível concluir. Tente novamente.';
+}
+async function refreshProjects(){
+ if(refreshPromise)return refreshPromise;
+ refreshPromise=(async()=>{try{
+  const projects=await cloud.list(panelUnlocked);userProjects=projects;lastRefresh=Date.now();renderProjects();
+  publicStatus.textContent=projects.some(p=>p.published)?'Trabalhos selecionados':'Curadoria em construção · projetos demonstrativos';
+  $('#cloud-retry').hidden=true;if(panelUnlocked)manageList();
+ }catch(e){publicStatus.textContent='Não foi possível atualizar os projetos online.';$('#cloud-retry').hidden=false;throw e;}
+ finally{refreshPromise=null;}})();return refreshPromise;
+}
+function resetProjectForm(){
+ editingProject=null;$('#project-form').reset();$('#project-form').elements.year.value=new Date().getFullYear();
+ $('#project-form').elements.media.required=true;$('#project-submit').textContent='Salvar projeto';$('#cancel-edit').hidden=true;
+ $('#media-help').textContent='JPG, PNG, WebP, MP4, WebM ou PDF · até 50 MB por arquivo · até 20 arquivos';
+}
+function setBusy(busy){panelBusy=busy;$$('input,select,textarea,button', $('#manager-dialog')).forEach(el=>el.disabled=busy);}
+function manageList(){
+ $('#manage-list').innerHTML=userProjects.length?userProjects.map(p=>`<div class="manage-item"><div><strong>${esc(p.title)}</strong><small>${esc(p.category)} · ${p.published?'Publicado':'Oculto'}</small></div><div class="manage-item-actions"><button data-edit="${p.id}">Editar</button><button data-publish="${p.id}">${p.published?'Ocultar':'Publicar'}</button></div></div>`).join(''):'<p class="manager-empty">Adicione seu primeiro trabalho. Seus arquivos ficam salvos online.</p>';
+ $$('[data-edit]').forEach(b=>b.onclick=()=>{
+  if(!panelUnlocked||panelBusy)return;editingProject=userProjects.find(p=>p.id===b.dataset.edit);const f=$('#project-form');
+  for(const name of ['title','category','year','description'])f.elements[name].value=editingProject[name];
+  f.elements.published.checked=editingProject.published;f.elements.media.value='';f.elements.media.required=false;
+  $('#project-submit').textContent='Salvar alterações';$('#cancel-edit').hidden=false;
+  $('#media-help').textContent=`${editingProject.media.length} arquivo(s) salvo(s). Deixe vazio para manter; selecione arquivos para substituir todos.`;
+  $('.form-status',f).textContent='';f.elements.title.focus();
+ });
+ $$('[data-publish]').forEach(b=>b.onclick=async()=>{
+  if(!panelUnlocked||panelBusy)return;const p=userProjects.find(p=>p.id===b.dataset.publish);setBusy(true);
+  try{await cloud.publish(p.id,!p.published);await refreshProjects();$('#manager-status').textContent=p.published?'Projeto ocultado. Ele continua salvo no painel.':'Projeto publicado para os visitantes.';}
+  catch(e){$('#manager-status').textContent=errorText(e);}finally{setBusy(false);}
+ });
+}
 function requestPanelAccess(){
-  $('#access-form').reset();$('#access-status').textContent='';
-  $('#access-dialog').showModal();$('#panel-password').focus();
+ if(panelUnlocked){manageList();$('#manager-dialog').showModal();return;}
+ $('#access-form').reset();$('#access-status').textContent='';$('#access-dialog').showModal();$('#panel-password').focus();
 }
 $('#manage-open').onclick=requestPanelAccess;
 $('#access-form').onsubmit=async e=>{
-  e.preventDefault();const form=e.target,button=$('button[type=submit]',form),status=$('#access-status');
-  button.disabled=true;status.textContent='Verificando…';
-  try{
-    const valid=await PortfolioPanel.verify(form.elements.password.value);
-    if(!$('#access-dialog').open)return;
-    if(!valid){status.textContent='Senha incorreta. Tente novamente.';form.elements.password.value='';form.elements.password.focus();return;}
-    panelUnlocked=true;panelEpoch++;$('#manager-dialog').inert=false;
-    userProjects=await readDrafts();renderProjects();manageList();
-    form.reset();$('#access-dialog').close();$('#manager-dialog').showModal();
-  }catch(err){panelUnlocked=false;$('#manager-dialog').inert=true;status.textContent=err.message||'Não foi possível abrir o painel.'}
-  finally{button.disabled=false;}
+ e.preventDefault();const f=e.target,b=$('button[type=submit]',f),status=$('#access-status');b.disabled=true;status.textContent='Conferindo seu acesso…';
+ try{
+  if(!cloud)throw Error('Armazenamento indisponível. Atualize a página.');
+  await cloud.login(f.elements.email.value.trim(),f.elements.password.value);
+  if(!$('#access-dialog').open){await cloud.logout();return;}
+  if(refreshPromise)await refreshPromise.catch(()=>{});
+  panelUnlocked=true;$('#manager-dialog').inert=false;await refreshProjects();f.reset();$('#access-dialog').close();$('#manager-dialog').showModal();
+ }catch(err){panelUnlocked=false;$('#manager-dialog').inert=true;userProjects=userProjects.filter(p=>p.published);renderProjects();if(cloud)await cloud.logout().catch(()=>{});status.textContent=errorText(err);}
+ finally{f.elements.password.value='';b.disabled=false;}
 };
 $('#access-dialog').addEventListener('close',()=>$('#access-form').reset());
-$('#panel-logout').onclick=()=>{
-  panelUnlocked=false;panelEpoch++;$('#manager-dialog').close();$('#manager-dialog').inert=true;
-  $('#project-form').reset();$('#import-projects').value='';$('#manage-list').replaceChildren();
-  userProjects=[];renderProjects();$('#manage-open').focus();
+function lockPanel(){
+ panelUnlocked=false;$('#manager-dialog').close();$('#manager-dialog').inert=true;resetProjectForm();
+ $('#manage-list').replaceChildren();userProjects=userProjects.filter(p=>p.published);renderProjects();
+}
+$('#panel-logout').onclick=async()=>{if(panelBusy)return;lockPanel();await cloud.logout().catch(()=>{});$('#manage-open').focus();};
+$('#manager-dialog').addEventListener('cancel',e=>{if(panelBusy)e.preventDefault();});
+$('#manager-dialog').addEventListener('click',()=>{if(panelBusy&&!$('#manager-dialog').open)$('#manager-dialog').showModal();});
+$('#cancel-edit').onclick=resetProjectForm;
+$('#project-form').onsubmit=async e=>{
+ e.preventDefault();if(!panelUnlocked||panelBusy)return;const f=e.target,status=$('.form-status',f);
+ const fields={title:f.elements.title.value,category:f.elements.category.value,year:f.elements.year.value,description:f.elements.description.value,published:f.elements.published.checked};
+ const files=[...f.elements.media.files];setBusy(true);
+ try{await cloud.save(fields,files,editingProject,message=>status.textContent=message);resetProjectForm();
+  status.textContent=fields.published?'Projeto salvo online e publicado.':'Projeto salvo online como oculto.';
+  try{await refreshProjects();}catch{status.textContent+=' Atualize a página para recarregar a lista.';}
+ }catch(err){status.textContent=errorText(err);}finally{setBusy(false);}
 };
-const allowedMedia=['image/jpeg','image/png','image/webp','video/mp4','video/webm'];
-const readData=f=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)});
-$('#project-form').onsubmit=async e=>{e.preventDefault();if(!panelUnlocked){requestPanelAccess();return;}const f=e.target,status=$('.form-status',f),button=$('button[type=submit]',f);button.disabled=true;status.textContent='Preparando seu projeto…';try{const data=new FormData(f),files=[...f.elements.media.files];if(!files.length)throw Error('Selecione pelo menos um arquivo.');if(files.length>20)throw Error('Selecione até 20 arquivos por projeto.');if(files.some(x=>!allowedMedia.includes(x.type)))throw Error('Use JPG, PNG, WebP, MP4 ou WebM.');if(files.some(x=>x.size>25*1024*1024))throw Error('Cada arquivo deve ter no máximo 25 MB.');if(files.reduce((n,f)=>n+f.size,0)>75*1024*1024)throw Error('Adicione até 75 MB por projeto.');const title=String(data.get('title')).trim();if(!title)throw Error('Dê um título ao projeto.');const media=[];for(const file of files)media.push({type:file.type,name:file.name,data:await readData(file)});const p={id:'local-'+uid(),title,category:data.get('category'),year:Number(data.get('year')),description:String(data.get('description')),media,local:true};const next=[p,...userProjects];await saveDrafts(next);userProjects=next;f.reset();f.elements.year.value=new Date().getFullYear();status.textContent='Projeto adicionado ao rascunho local. Exporte uma cópia para guardar.';activeFilter='Todos';$$('[data-filter]').forEach(x=>{x.classList.toggle('active',x.dataset.filter==='Todos');x.setAttribute('aria-pressed',String(x.dataset.filter==='Todos'))});renderProjects();manageList()}catch(err){status.textContent=err.name==='QuotaExceededError'?'O armazenamento do navegador está cheio. Exporte seus rascunhos e remova arquivos antes de tentar novamente.':err.message||'Não foi possível salvar o projeto neste navegador.'}finally{button.disabled=false}};
-$('#export-projects').onclick=()=>{if(!panelUnlocked)return;if(!userProjects.length){$('#manager-status').textContent='Adicione um projeto antes de exportar.';return}download(JSON.stringify({format:'davi-ayres-portfolio',version:1,projects:userProjects}), 'Davi_Ayres_Rascunhos.json','application/json');$('#manager-status').textContent='Cópia dos rascunhos preparada para download.'};
-$('#import-projects').onchange=async e=>{if(!panelUnlocked){e.target.value='';return;}const file=e.target.files[0];if(!file)return;try{if(file.size>150*1024*1024)throw Error('O arquivo deve ter até 150 MB.');const data=JSON.parse(await file.text());if(data.format!=='davi-ayres-portfolio'||data.version!==1||!Array.isArray(data.projects)||data.projects.length>100)throw Error('Arquivo de rascunhos inválido.');const incoming=data.projects.map(p=>{if(typeof p.title!=='string'||!p.title.trim()||!['Posts','Carrosséis','Identidades','Vídeos','Digital'].includes(p.category)||!Array.isArray(p.media)||!p.media.length||p.media.length>20||!Number.isInteger(p.year)||p.year<2000||p.year>2100)throw Error('Um projeto do arquivo está inválido.');const media=p.media.map(m=>{if(!allowedMedia.includes(m.type)||typeof m.data!=='string'||!m.data.startsWith('data:'+m.type+';base64,')||!/^data:[a-z]+\/[a-z0-9]+;base64,[A-Za-z0-9+/=\r\n]+$/.test(m.data)||m.data.length>36*1024*1024)throw Error('O arquivo contém uma mídia inválida.');return{type:m.type,name:String(m.name||'arquivo').slice(0,255),data:m.data}});return{id:'local-'+uid(),title:p.title.slice(0,80),category:p.category,year:p.year,description:String(p.description||'').slice(0,1500),media,local:true}});const next=[...incoming,...userProjects];await saveDrafts(next);userProjects=next;renderProjects();manageList();$('#manager-status').textContent=`${incoming.length} projeto(s) importado(s) para este navegador.`}catch(err){$('#manager-status').textContent=err.message||'Não foi possível importar os rascunhos.'}finally{e.target.value=''}};
+// A importação mantém os antigos rascunhos em formato JSON; nunca publica automaticamente.
+$('#import-projects').onchange=async e=>{
+ const file=e.target.files[0];if(!file||!panelUnlocked||panelBusy)return;let saved=0;setBusy(true);
+ try{
+  if(file.size>150*1024*1024)throw Error('Importe um JSON de até 150 MB.');
+  const data=JSON.parse(await file.text());
+  if(data.format!=='davi-ayres-portfolio'||data.version!==1||!Array.isArray(data.projects)||data.projects.length>100)throw Error('Arquivo de rascunhos inválido.');
+  for(const p of data.projects){
+   if(!Array.isArray(p.media)||!p.media.length||p.media.length>20)throw Error('Projeto com arquivos inválidos.');
+   const files=p.media.map(m=>{
+    if(typeof m.data!=='string'||!/^data:(image\/(jpeg|png|webp)|video\/(mp4|webm));base64,[A-Za-z0-9+/=\r\n]+$/.test(m.data)||!m.data.startsWith('data:'+m.type+';base64,')||m.data.length>70*1024*1024)throw Error('Mídia inválida no rascunho.');
+    const raw=atob(m.data.split(',')[1]),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));return new File([bytes],String(m.name||'arquivo'),{type:m.type});
+   });
+   await cloud.save({...p,published:false},files,null,message=>$('#manager-status').textContent=`Projeto ${saved+1}: ${message}`);saved++;
+  }
+  await refreshProjects();$('#manager-status').textContent=`${saved} projeto(s) importado(s) e salvo(s) online como ocultos. Revise e clique em Publicar.`;
+ }catch(err){$('#manager-status').textContent=`${saved} projeto(s) importado(s). ${errorText(err)}`;await refreshProjects().catch(()=>{});}
+ finally{e.target.value='';setBusy(false);}
+};
+$('#cloud-retry').onclick=()=>refreshProjects().catch(()=>{});
 renderProjects();
+try{cloud=PortfolioCloud.create(window.PORTFOLIO_DATABASE,window.supabase);cloud.onSignedOut(lockPanel);refreshProjects().catch(()=>{});}
+catch(e){publicStatus.textContent='O armazenamento online está indisponível.';$('#manage-open').disabled=true;}
+// Renova URLs temporárias e busca publicações novas quando o visitante retorna à página.
+setInterval(()=>{if(cloud&&!document.hidden&&!panelBusy)refreshProjects().catch(()=>{});},45*60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloud&&!panelBusy&&Date.now()-lastRefresh>60000)refreshProjects().catch(()=>{});});
 // Movimento: os ritmos, o blur e a resposta ao scroll seguem a linguagem da Bow.
 let mx=0,my=0,cx=0,cy=0;document.addEventListener('pointermove',e=>{mx=e.clientX+18;my=e.clientY+18},{passive:true});if(matchMedia('(pointer:fine)').matches&&!reduce){const move=()=>{cx+=(mx-cx)*.22;cy+=(my-cy)*.22;$('.cursor-tag').style.transform=`translate3d(${cx}px,${cy}px,0)`;requestAnimationFrame(move)};move()}
 function updateProgress(){$('.nav').classList.toggle('scrolled',scrollY>100);const max=document.documentElement.scrollHeight-innerHeight;$('.scroll-track span').style.height=(max?scrollY/max*100:0)+'%'}window.addEventListener('scroll',updateProgress,{passive:true});

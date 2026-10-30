@@ -1,0 +1,1 @@
+const fs=require('fs');fs.copyFileSync('node_modules/@supabase/supabase-js/dist/umd/supabase.js','vendor/supabase.min.js');fs.copyFileSync('node_modules/@supabase/supabase-js/LICENSE','vendor/SUPABASE-LICENSE');
