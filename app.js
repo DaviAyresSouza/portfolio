@@ -185,23 +185,29 @@ catch(e){publicStatus.textContent='O armazenamento online está indisponível.';
 // Renova URLs temporárias e busca publicações novas quando o visitante retorna à página.
 setInterval(()=>{if(cloud&&!document.hidden&&!panelBusy)refreshProjects().catch(()=>{});},45*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloud&&!panelBusy&&Date.now()-lastRefresh>60000)refreshProjects().catch(()=>{});});
-// Lente de vidro: acompanha apenas ponteiros precisos e não intercepta cliques.
-const heroGlass=$('.hero-glass'),heroSurface=$('.hero');
-const glassMedia=matchMedia('(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference)');
-let glassFrame=0,glassX=0,glassY=0;
-function hideGlass(){heroSurface.classList.remove('glass-active');cancelAnimationFrame(glassFrame);glassFrame=0;}
+// Ondulação leve nas letras, sem filtros ou elementos sobre o cursor.
+const heroSurface=$('.hero'),waveMedia=matchMedia('(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference)');
+const waveLetters=[];
+$$('.hero-title h1>span').forEach(line=>{
+ [...line.childNodes].forEach(node=>{
+  if(node.nodeType!==3)return;
+  const fragment=document.createDocumentFragment();
+  for(const char of node.textContent){const letter=document.createElement('span');letter.className='wave-letter';letter.textContent=char;fragment.append(letter);waveLetters.push(letter);}
+  node.replaceWith(fragment);
+ });
+});
+let waveFrame=0,waveX=0;
+function resetWave(){cancelAnimationFrame(waveFrame);waveFrame=0;waveLetters.forEach(el=>el.style.removeProperty('--wave-y'));}
 heroSurface.addEventListener('pointermove',e=>{
- if(!glassMedia.matches||e.pointerType==='touch')return;
- const r=heroSurface.getBoundingClientRect();glassX=e.clientX-r.left;glassY=e.clientY-r.top;
- heroSurface.classList.add('glass-active');
- if(!glassFrame)glassFrame=requestAnimationFrame(()=>{
-  heroGlass.style.setProperty('--glass-x',glassX+'px');heroGlass.style.setProperty('--glass-y',glassY+'px');glassFrame=0;
+ if(!waveMedia.matches||e.pointerType==='touch')return;
+ waveX=e.clientX;
+ if(!waveFrame)waveFrame=requestAnimationFrame(()=>{
+  waveLetters.forEach((el,i)=>{const r=el.getBoundingClientRect();const distance=waveX-(r.left+r.width/2);const strength=Math.exp(-Math.pow(distance/300,2));el.style.setProperty('--wave-y',(Math.sin(distance/95+i*.5)*3.5*strength).toFixed(2)+'px');});waveFrame=0;
  });
 },{passive:true});
-heroSurface.addEventListener('pointerleave',hideGlass);
-heroSurface.addEventListener('pointercancel',hideGlass);
-window.addEventListener('blur',hideGlass);
-glassMedia.addEventListener('change',hideGlass);
+heroSurface.addEventListener('pointerleave',resetWave);
+heroSurface.addEventListener('pointercancel',resetWave);
+window.addEventListener('blur',resetWave);waveMedia.addEventListener('change',resetWave);
 // Movimento: os ritmos, o blur e a resposta ao scroll seguem a linguagem da Bow.
 let mx=0,my=0,cx=0,cy=0;document.addEventListener('pointermove',e=>{mx=e.clientX+18;my=e.clientY+18},{passive:true});if(matchMedia('(pointer:fine)').matches&&!reduce){const move=()=>{cx+=(mx-cx)*.22;cy+=(my-cy)*.22;$('.cursor-tag').style.transform=`translate3d(${cx}px,${cy}px,0)`;requestAnimationFrame(move)};move()}
 function updateProgress(){$('.nav').classList.toggle('scrolled',scrollY>100);const max=document.documentElement.scrollHeight-innerHeight;$('.scroll-track span').style.height=(max?scrollY/max*100:0)+'%'}window.addEventListener('scroll',updateProgress,{passive:true});

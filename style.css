@@ -43,8 +43,6 @@ img,video,canvas{-webkit-touch-callout:none;-webkit-user-drag:none;user-select:n
 .contact-grid>div{width:65%;position:relative}
 .contact-grid>div>p{color:#b8bdc4}
 .contact-note{color:#a3a9b2}
-.hero-glass{position:absolute;top:0;left:0;width:clamp(150px,15vw,220px);aspect-ratio:1.15;z-index:5;pointer-events:none;opacity:0;transform:translate3d(var(--glass-x,-400px),var(--glass-y,-400px),0) translate(-50%,-50%);background:transparent;border:0;box-shadow:none;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);-webkit-mask-image:radial-gradient(ellipse at center,#0009 0%,#0006 20%,#0003 40%,#0001 60%,transparent 75%);mask-image:radial-gradient(ellipse at center,#0009 0%,#0006 20%,#0003 40%,#0001 60%,transparent 75%);transition:opacity .4s ease;will-change:transform}
-@media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){.hero.glass-active .hero-glass{opacity:1}}
 @media(max-width:1000px){.contact-grid>div{width:75%}.contact-backdrop img{width:86%;right:-10%}}
 @media(max-width:700px){
  .contact{min-height:860px;min-height:max(860px,100svh);padding-top:35px;padding-bottom:45px}
@@ -53,6 +51,25 @@ img,video,canvas{-webkit-touch-callout:none;-webkit-user-drag:none;user-select:n
  .contact .contact-grid{align-items:flex-end;padding-top:350px}
  .contact-grid>div{width:100%}.contact h2{font-size:clamp(48px,13vw,64px)}
  .contact-button{max-width:360px}.contact-grid>div>p{margin-top:22px}
- .hero-glass{display:none}
 }
-@media(prefers-reduced-motion:reduce){.hero-glass{display:none}}
+
+
+/* Textos de apoio legíveis e ondulação discreta na hero. */
+.wave-letter{display:inline-block;transform:translateY(var(--wave-y,0px));transition:transform .4s cubic-bezier(.2,.8,.2,1)}
+.section-kicker{font-size:12px;line-height:1.6;letter-spacing:.1em;color:#b0b4bb}
+.work .section-kicker,.practice .section-kicker{color:#555d66}
+.hero-top{font-size:11px;line-height:1.6}.hero-side,.hero-index{font-size:11px}
+.eyebrow,.image-caption,.photo-counter{font-size:11px;line-height:1.6}
+.project-caption p,.project-caption>span,.work-counter{font-size:12px}
+.project-badge{font-size:10px}.filters button{font-size:12px}
+.work-foot>span{font-size:11px}.contact-note{font-size:12px;line-height:1.6}
+.about-details>span{font-size:11px}.about-details strong{font-size:13px}
+.visual-journal>span,.bow-3d>span{font-size:11px;line-height:1.6}
+footer>p,footer>div,.manage-link{font-size:12px;line-height:1.6}
+@media(max-width:700px){
+ .section-kicker{font-size:11px;letter-spacing:.06em}.hero-top{font-size:10px}
+ .filters button{font-size:11px}.project-caption p{font-size:12px}
+ .project-badge,.work-foot>span{font-size:10px}footer>div{font-size:11px}
+ .wave-letter{transform:none!important}
+}
+@media(prefers-reduced-motion:reduce){.wave-letter{transform:none!important;transition:none}}
